@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 
-VmWrapper::VmWrapper() {
+VmWrapper::VmWrapper() : BUS_LENGTH(0), STRIP_LENGTH(0) {
     namespace fs = std::filesystem;
     LPCTSTR path = TEXT("SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VB:"
                         "Voicemeeter {17359A74-1236-5467}");
@@ -59,9 +59,9 @@ VmWrapper::VmWrapper() {
 }
 
 VmWrapper::~VmWrapper() {
-    if (connected)
-        Logout();
-
+    // if (connected)
+    //     Logout();
+    HMODULE
     FreeLibrary(vmLib);
     vmLib = NULL;
 }
@@ -71,8 +71,23 @@ int VmWrapper::Login() {
         int ret;
         if (ret = _Login() < 0)
             connected = false;
-        else
+        else {
+            long vmType;
+            _GetVoicemeeterType(&vmType);
+            switch (vmType) {
+            case 1:
+                BUS_LENGTH = 2;
+                STRIP_LENGTH = 3;
+                break;
+            case 2:
+                BUS_LENGTH = STRIP_LENGTH = 5;
+                break;
+            case 3:
+                BUS_LENGTH = STRIP_LENGTH = 8;
+                break;
+            }
             connected = true;
+        }
         return ret;
     }
     return -9999;
@@ -80,8 +95,7 @@ int VmWrapper::Login() {
 
 void VmWrapper::Logout() {
     if (connected) {
-        int ret = _Logout();
-        std::cout << ret << std::endl;
+        _Logout();
         connected = false;
     }
 }
@@ -101,6 +115,10 @@ int VmWrapper::Loadfunctions() {
         IsParametersDirty = (T_VBVMR_IsParametersDirty)GetProcAddress(vmLib, "VBVMR_IsParametersDirty");
         if (IsParametersDirty == NULL)
             return -3;
+
+        _GetVoicemeeterType = (T_VBVMR_GetVoicemeeterType)GetProcAddress(vmLib, "VBVMR_GetVoicemeeterType");
+        if (_GetVoicemeeterType == NULL)
+            return -4;
 
     } else
         return -9999;
